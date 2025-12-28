@@ -1,7 +1,7 @@
 from django import forms
 from django.contrib.auth.forms import UserCreationForm, UserChangeForm
 from django.contrib.auth import get_user_model
-from .models import Post, Comment
+from .models import Post, Comment, Category, Location
 
 User = get_user_model()
 
@@ -13,6 +13,7 @@ class CreationForm(UserCreationForm):
 
 
 class EditUserForm(forms.ModelForm):
+    password = None
     class Meta:
         model = User
         fields = ('first_name', 'last_name', 'username', 'email')
@@ -33,10 +34,29 @@ class EditUserForm(forms.ModelForm):
 class PostForm(forms.ModelForm):
     class Meta:
         model = Post
-        fields = ('title', 'text', 'image', 'pub_date', 'category', 'location')
+        exclude = ['author', 'created_at']  # Исключаем нередактируемые поля
         widgets = {
             'pub_date': forms.DateTimeInput(attrs={'type': 'datetime-local'}),
+            'text': forms.Textarea(attrs={'rows': 10, 'class': 'form-control'}),
+            'title': forms.TextInput(attrs={'class': 'form-control'}),
+            'location': forms.Select(attrs={'class': 'form-control'}),
+            'category': forms.Select(attrs={'class': 'form-control'}),
+            'is_published': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Фильтруем только опубликованные категории и местоположения
+        self.fields['category'].queryset = Category.objects.filter(is_published=True)
+        self.fields['location'].queryset = Location.objects.filter(is_published=True)
+
+        # Добавляем подсказки для полей
+        self.fields['pub_date'].help_text = (
+            'Если установить дату и время в будущем — можно делать отложенные публикации.'
+        )
+        self.fields['is_published'].help_text = (
+            'Снимите галочку, чтобы скрыть публикацию.'
+        )
 
 
 class CommentForm(forms.ModelForm):

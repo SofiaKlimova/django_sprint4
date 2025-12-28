@@ -1,6 +1,7 @@
 from django.db import models
 from django.contrib.auth import get_user_model
 from django.utils import timezone
+from django.db.models import Count
 
 User = get_user_model()
 
@@ -58,6 +59,65 @@ class Location(BaseModel):
         return self.name
 
 
+class PostManager(models.Manager):  # ИЗМЕНЕНО: добавлен кастомный менеджер
+    """Кастомный менеджер для модели Post"""
+
+    def filter_published(self, queryset=None, published_only=True):
+        """
+        Фильтрует переданный queryset по опубликованности.
+
+        Args:
+            queryset (QuerySet, optional): Набор постов для фильтрации. 
+                По умолчанию None (все посты таблицы).
+            published_only (bool): Если True, фильтрует только опубликованные посты
+        """
+        if queryset is None:
+            queryset = self.get_queryset()  # По умолчанию - все посты таблицы
+
+        if published_only:
+            queryset = queryset.filter(
+                is_published=True,
+                pub_date__lte=timezone.now(),
+                category__is_published=True
+            )
+
+        return queryset
+
+    # ИЗМЕНЕНО: Добавлен метод with_comments, принимающий queryset
+    def with_comments(self, queryset=None):
+        """Добавляет количество комментариев к переданному queryset"""
+        if queryset is None:
+            queryset = self.get_queryset()  # По умолчанию - все посты таблицы
+
+        return queryset.annotate(comment_count=Count('comments'))
+
+    def get_posts_with_comments(self, published_only=True, category=None, author=None):
+        """
+        Возвращает посты с количеством комментариев.
+
+        Args:
+            published_only (bool): Если True, фильтрует только опубликованные посты
+            category (Category): Если указана, фильтрует по категории
+            author (User): Если указан, фильтрует по автору
+        """
+        qs = self.get_queryset()
+
+        if published_only:
+            qs = qs.filter(
+                is_published=True,
+                pub_date__lte=timezone.now(),
+                category__is_published=True
+            )
+
+        if category:
+            qs = qs.filter(category=category)
+
+        if author:
+            qs = qs.filter(author=author)
+
+        return qs.annotate(comment_count=Count('comments'))
+
+
 class Post(BaseModel):
     title = models.CharField(
         'Заголовок',
@@ -98,6 +158,8 @@ class Post(BaseModel):
         blank=True
     )
 
+    objects = PostManager()
+
     class Meta:
         verbose_name = 'публикация'
         verbose_name_plural = 'Публикации'
@@ -105,16 +167,6 @@ class Post(BaseModel):
 
     def __str__(self):
         return self.title
-
-    @classmethod
-    def get_published(cls):
-        """Получить опубликованные посты с проверкой всех условий"""
-        now = timezone.now()
-        return cls.objects.filter(
-            is_published=True,
-            pub_date__lte=now,
-            category__is_published=True
-        )
 
 
 class Comment(models.Model):
