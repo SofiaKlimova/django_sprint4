@@ -11,7 +11,7 @@
       <li class="list-group-item text-muted">Роль: {% if profile.is_staff %}Админ{% else %}Пользователь{% endif %}</li>
     </ul>
     <ul class="list-group list-group-horizontal justify-content-center">
-      {% if user.is_authenticated and request.user == profile %}
+      {% if user.is_authenticated and user.id == profile.id %}
       <a class="btn btn-sm text-muted" href="{% url 'blog:edit_profile' %}">Редактировать профиль</a>
       <a class="btn btn-sm text-muted" href="{% url 'password_change' %}">Изменить пароль</a>
       {% endif %}
